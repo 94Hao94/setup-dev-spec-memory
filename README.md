@@ -8,6 +8,7 @@
 - 建立三层加载架构（agentmemory → CLAUDE.md → 本地文件）
 - 避免规范内容的冗余读取
 - 支持故障降级和托底机制
+- 多 agent 来源标注规范（区分 Claude/Trae/Cursor 等写入的记忆）
 
 ## 三层架构
 
@@ -59,7 +60,8 @@ ln -s $(pwd) ~/.claude/skills/setup-dev-spec-memory
 4. 分章存储规范（8章）
 5. 创建索引记忆
 6. 更新 CLAUDE.md 为纯钩子
-7. 验证安装
+7. 存储多 agent 来源标注规范
+8. 验证安装
 
 ## 相关文件
 
