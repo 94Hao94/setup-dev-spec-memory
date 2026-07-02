@@ -42,12 +42,31 @@ agentmemory doctor
 - 规范文件存在：`~/AI开发执行规范.md`
 - agentmemory 服务运行：`agentmemory status`
 
-### 2. 清理旧记忆
+### 1.5 版本检查
 
+比对本地文件版本与记忆系统中的版本：
+
+```bash
+# 读取本地文件版本
+grep "规范版本" ~/AI开发执行规范.md
+
+# 查询记忆中的版本
+memory_recall query="AI开发执行规范 规范索引 版本"
 ```
-memory_recall query="AI开发执行规范"
-memory_governance_delete 旧记忆ID
+
+- 如果版本一致 → 跳过后续步骤（无需重复同步）
+- 如果版本不一致或记忆中无记录 → 继续执行后续步骤
+
+### 2. 确认同步范围
+
+列出将要更新的章节：
+
+```bash
+# 显示规范章节目录
+grep "^## 第" ~/AI开发执行规范.md
 ```
+
+新记忆会自动 supersede 旧记忆，无需手动删除。
 
 ### 3. 分章存储（8章）
 
@@ -63,6 +82,21 @@ memory_governance_delete 旧记忆ID
 | 第八章：汇报同步 | 汇报同步,任务报告,阶段汇总 |
 
 使用 `memory_save`，设置 `type: fact`，`files: ["~/AI开发执行规范.md"]`
+
+**⚠️ 必须传 `project` 参数**（agentmemory 官方规范要求）：
+
+```
+memory_save \
+  content="第一章：AI 行为准则..." \
+  type="fact" \
+  concepts="AI行为准则,操作确认,透明度,边界意识" \
+  files="~/AI开发执行规范.md" \
+  project="setup-dev-spec-memory"   # ← stable canonical project identifier
+```
+
+- `project` 必须是 **stable canonical identifier**（如 slug、UUID），不能用文件路径或临时名称
+- 本项目固定使用 `project="setup-dev-spec-memory"`
+- 参见 agentmemory 官方 MCP tool schema 中 `memory_save` 的 `project` 参数说明
 
 ### 4. 创建索引记忆
 
@@ -95,6 +129,50 @@ Layer 3: ~/AI开发执行规范.md ← 最后托底
 memory_recall query="AI开发执行规范 规范索引"
 ```
 
+### 7. 存储多 agent 来源标注规范
+
+agentmemory 数据模型不存储 agentId，无法自动区分哪条记忆是哪个 agent 写入的。
+通过内容前缀实现来源标识。
+
+```
+memory_save \
+  content="【多 agent 来源标注规范】..." \
+  type="preference" \
+  project="setup-dev-spec-memory"
+```
+
+前缀格式：
+- `[Claude]` — Claude Code
+- `[Trae]` — Trae
+- `[Cursor]` — Cursor
+- `[Gemini]` — Gemini CLI
+- `[Copilot]` — GitHub Copilot / Copilot CLI
+- `[Codex]` — OpenAI Codex CLI
+- `[Kiro]` — Kiro
+- `[Warp]` — Warp AI
+- `[Zed]` — Zed AI
+- `[Cline]` — Cline
+- `[Continue]` — Continue
+- `[Qwen]` — Qwen / 通义灵码
+- `[Droid]` — Droid
+- `[Antigravity]` — Antigravity
+- `[Other]` — 其他未列出的 agent
+
+**Memory ID**: 见 REFERENCE.md
+
+### 8. 创建快照
+
+规范同步完成后，创建记忆快照以支持版本追踪和回滚：
+
+```
+memory_snapshot_create message="AI开发执行规范 v1.2 同步完成"
+```
+
+快照用途：
+- 追踪规范的历史变化
+- 记忆损坏时回滚到已知正确的版本
+- diff 查看两次更新之间的变化
+
 ## Anti-patterns
 
 **WRONG**: 完整规范存为单个记忆  
@@ -103,16 +181,36 @@ memory_recall query="AI开发执行规范 规范索引"
 **WRONG**: CLAUDE.md 嵌入规范内容  
 **RIGHT**: CLAUDE.md 只作为钩子
 
+**WRONG**: `memory_save` 不传 `project` 参数  
+**RIGHT**: 必须传 `project`（stable canonical identifier），否则记忆无法按项目隔离
+
+**WRONG**: 闭门造车，分析 minified 源码或猜测 API 行为  
+**RIGHT**: **开发/使用时必须查阅官方文档**（MCP tool schema、GitHub README、官方 wiki），不要逆向工程
+
 ## Checklist
 
 - [ ] agentmemory 已安装并运行
 - [ ] agentmemory connect 已执行
 - [ ] 规范文件存在
-- [ ] 旧记忆已清理
-- [ ] 8 章已分别存储
-- [ ] 索引记忆已创建
+- [ ] 版本检查（本地 vs 记忆）
+- [ ] 同步范围已确认
+- [ ] 8 章已分别存储（**每条都带 `project="setup-dev-spec-memory"`**）
+- [ ] 索引记忆已创建（含版本号 + project）
 - [ ] CLAUDE.md 已更新
+- [ ] 多 agent 来源标注规范已存储（带 project）
+- [ ] 快照已创建
 - [ ] 验证通过
+
+## 开发习惯（必读）
+
+> **使用任何工具/框架/服务时，必须先查阅官方文档**，不要分析 minified 源码或猜测 API 行为。
+> 
+> 例如：
+> - 开发小程序 → 查微信小程序官方文档
+> - 使用 agentmemory → 查 agentmemory GitHub README + MCP tool schema
+> - 使用 React → 查 React 官方文档
+> 
+> 官方文档是最权威的来源，minified 源码容易误读，第三方博客可能过时。
 
 ## See also
 
