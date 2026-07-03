@@ -12,30 +12,67 @@ user-invocable: true
 
 ```
 Layer 1: agentmemory ← 主记忆源（规范分章存储）
-Layer 2: CLAUDE.md ← 备用钩子
+Layer 2: Agent 配置钩子 ← Codex hooks / CLAUDE.md / 对应 agent 配置
 Layer 3: ~/AI开发执行规范.md ← 最后托底
 ```
 
 ## 执行步骤
 
-### 0. 安装 agentmemory（如未安装）
+### 0. 安装并接入 agentmemory（如未安装）
+
+先查阅官方文档：<https://github.com/rohitg00/agentmemory>。不要使用过时命令或硬编码某个 agent。
+
+#### 0.1 启动记忆服务
 
 ```bash
-# 检查是否已安装
-which agentmemory || npm install -g agentmemory
+# 如果已安装 agentmemory 命令，直接启动；否则使用 npx 启动
+agentmemory
+# 或
+npx @agentmemory/agentmemory
+```
 
-# 启动服务
-agentmemory start
+服务应监听 `http://localhost:3111`。若系统已配置开机自启，只需验证：
 
-# 连接当前智能体（claude-code / cursor / gemini-cli 等）
+```bash
+agentmemory status
+```
+
+#### 0.2 接入当前 agent
+
+按当前工具选择接入方式，不要固定使用 `claude-code`。
+
+```bash
+# 按当前 agent 选择一个 adapter
+agentmemory connect codex
 agentmemory connect claude-code
+agentmemory connect cursor
+agentmemory connect gemini-cli
+```
 
-# 验证连接
+Codex 推荐使用官方插件平台：
+
+```bash
+codex plugin marketplace add rohitg00/agentmemory
+codex plugin add agentmemory@agentmemory
+
+# Codex Desktop 需要额外写入全局 hooks workaround
+agentmemory connect codex --with-hooks
+```
+
+安装 agentmemory 官方 skills，让 agent 知道何时调用记忆工具：
+
+```bash
+npx skills add rohitg00/agentmemory -y
+```
+
+最后验证：
+
+```bash
 agentmemory status
 agentmemory doctor
 ```
 
-参见 agentmemory-agents skill 获取完整安装指南。
+参见 agentmemory-agents skill 获取完整 adapter 列表；参见 agentmemory 官方 README 获取最新安装方式。
 
 ### 1. 检查前置条件
 
@@ -115,7 +152,7 @@ content: 版本信息 + 章节列表 + Memory ID 映射 + 三层架构说明
 
 ## 三层架构
 Layer 1: agentmemory ← 主记忆源
-Layer 2: 本文件 ← 备用钩子  
+Layer 2: 当前 agent 配置钩子 ← 备用钩子  
 Layer 3: ~/AI开发执行规范.md ← 最后托底
 
 ## 禁止事项
@@ -184,19 +221,23 @@ memory_snapshot_create message="AI开发执行规范 v1.2 同步完成"
 **WRONG**: `memory_save` 不传 `project` 参数  
 **RIGHT**: 必须传 `project`（stable canonical identifier），否则记忆无法按项目隔离
 
+**WRONG**: 新 agent 接入时固定执行 `agentmemory connect claude-code`  
+**RIGHT**: 按当前 agent 使用官方 adapter；Codex 使用插件平台并执行 `agentmemory connect codex --with-hooks`
+
 **WRONG**: 闭门造车，分析 minified 源码或猜测 API 行为  
 **RIGHT**: **开发/使用时必须查阅官方文档**（MCP tool schema、GitHub README、官方 wiki），不要逆向工程
 
 ## Checklist
 
 - [ ] agentmemory 已安装并运行
-- [ ] agentmemory connect 已执行
+- [ ] 当前 agent 的官方接入方式已执行（connect / plugin / hooks）
+- [ ] agentmemory 官方 skills 已安装（`npx skills add rohitg00/agentmemory -y`）
 - [ ] 规范文件存在
 - [ ] 版本检查（本地 vs 记忆）
 - [ ] 同步范围已确认
 - [ ] 8 章已分别存储（**每条都带 `project="setup-dev-spec-memory"`**）
 - [ ] 索引记忆已创建（含版本号 + project）
-- [ ] CLAUDE.md 已更新
+- [ ] 当前 agent 备用钩子已更新（如 CLAUDE.md / Codex hooks / 对应配置）
 - [ ] 多 agent 来源标注规范已存储（带 project）
 - [ ] 快照已创建
 - [ ] 验证通过

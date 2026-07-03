@@ -22,10 +22,23 @@
 - 最后更新：2026-07-01
 - 大小：~15KB
 
-## CLAUDE.md 路径
+## Agent 备用钩子 / 配置路径
 
-- macOS/Linux: `~/.claude/CLAUDE.md`
-- 作用：备用钩子，提醒调用 memory_recall
+| Agent | 配置 / 钩子 | 作用 |
+|-------|-------------|------|
+| Claude Code | `~/.claude/CLAUDE.md` | 备用钩子，提醒调用 memory_recall |
+| Codex Desktop | `~/.codex/hooks.json` | agentmemory lifecycle hooks workaround |
+| Codex CLI | `~/.codex/config.toml` | MCP server 配置 |
+| 其他 MCP agent | 对应 agent 的 MCP 配置 | 通过对应 adapter 写入，如 `agentmemory connect cursor` |
+
+Codex 推荐使用官方插件方式：
+
+```bash
+codex plugin marketplace add rohitg00/agentmemory
+codex plugin add agentmemory@agentmemory
+agentmemory connect codex --with-hooks
+npx skills add rohitg00/agentmemory -y
+```
 
 ## 查询方式
 
