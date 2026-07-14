@@ -126,6 +126,22 @@ class VerifierTests(unittest.TestCase):
         failed = [check.name for check in checks if not check.ok]
         self.assertIn("current specification index", failed)
 
+    def test_stale_slot_contract_fails(self):
+        stale = self.home / "stale.md"
+        stale.write_text(
+            "# AI 开发执行规范\n\n> 规范版本：v1.5\n",
+            encoding="utf-8",
+        )
+        _VerifyHandler.slots_payload["slots"][0]["content"] = build_contract(
+            parse_spec(stale), stale
+        )
+        meta = parse_spec(self.spec)
+
+        checks = verify_live(self.url, "", meta.version, meta.sha256)
+
+        failed = [check.name for check in checks if not check.ok]
+        self.assertIn("bootstrap contract content", failed)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -109,6 +109,29 @@ class GateTests(unittest.TestCase):
         self.assertIn("DEGRADED_LOCAL_AUTHORITY", context)
         self.assertIn("v1.6", context)
 
+    def test_stale_global_slot_uses_current_local_spec(self):
+        stale = Path(self.tmp.name) / "stale.md"
+        stale.write_text(
+            "# AI 开发执行规范\n\n> 规范版本：v1.5\n",
+            encoding="utf-8",
+        )
+        _SlotHandler.payload = {
+            "slots": [
+                {
+                    "label": "ai_dev_spec_bootstrap",
+                    "scope": "global",
+                    "pinned": True,
+                    "content": build_contract(parse_spec(stale), stale),
+                }
+            ]
+        }
+
+        result = self.run_gate()
+
+        context = result["hookSpecificOutput"]["additionalContext"]
+        self.assertIn("AI_DEV_SPEC_BOOTSTRAP v1.6", context)
+        self.assertIn("DEGRADED_LOCAL_AUTHORITY", context)
+
     def test_missing_slot_and_local_spec_fails_closed(self):
         _SlotHandler.status = 503
         missing = Path(self.tmp.name) / "missing.md"

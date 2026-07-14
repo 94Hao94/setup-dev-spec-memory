@@ -200,6 +200,13 @@ def verify_live(
     checks.append(Check("global pinned bootstrap slot", slot_shape_ok, SLOT_LABEL))
     content = selected.get("content", "") if selected else ""
     missing = validate_contract(content) if isinstance(content, str) else ["content"]
+    if isinstance(content, str):
+        for token in (
+            "AI_DEV_SPEC_BOOTSTRAP %s" % expected_version,
+            "sha256=%s" % expected_sha256,
+        ):
+            if token not in content:
+                missing.append(token)
     checks.append(
         Check(
             "bootstrap contract content",

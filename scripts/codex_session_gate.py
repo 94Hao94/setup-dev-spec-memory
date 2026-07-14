@@ -40,7 +40,12 @@ def _slots_from_payload(payload: Any) -> Iterable[Mapping[str, Any]]:
     return [item for item in candidates if isinstance(item, dict)]
 
 
-def fetch_global_contract(base_url: str, secret: str = "") -> str:
+def fetch_global_contract(
+    base_url: str,
+    secret: str = "",
+    expected_version: str = "",
+    expected_sha256: str = "",
+) -> str:
     """Fetch and validate the fixed global pinned bootstrap slot."""
 
     url = base_url.rstrip("/") + "/agentmemory/slots"
@@ -62,6 +67,10 @@ def fetch_global_contract(base_url: str, secret: str = "") -> str:
         missing = validate_contract(content)
         if missing:
             raise ValueError("bootstrap contract is missing required tokens")
+        if expected_version and "AI_DEV_SPEC_BOOTSTRAP %s" % expected_version not in content:
+            raise ValueError("bootstrap contract version is stale")
+        if expected_sha256 and "sha256=%s" % expected_sha256 not in content:
+            raise ValueError("bootstrap contract SHA-256 is stale")
         return content
     raise ValueError("bootstrap slot is missing")
 
@@ -89,20 +98,28 @@ def run_gate() -> Dict[str, Any]:
 
     base_url = os.environ.get("AGENTMEMORY_URL", "http://localhost:3111")
     secret = os.environ.get("AGENTMEMORY_SECRET", "")
-    try:
-        return _continue_result(fetch_global_contract(base_url, secret))
-    except (HTTPError, URLError, TimeoutError, OSError, ValueError, json.JSONDecodeError):
-        pass
-
     authority = Path(
         os.environ.get("AI_DEV_SPEC_PATH", "~/AI开发执行规范.md")
     ).expanduser()
     try:
-        return _continue_result(
-            build_contract(parse_spec(authority), authority, degraded=True)
-        )
+        local_meta = parse_spec(authority)
     except (OSError, UnicodeError, ValueError):
-        return _stop_result()
+        local_meta = None
+    try:
+        return _continue_result(
+            fetch_global_contract(
+                base_url,
+                secret,
+                local_meta.version if local_meta else "",
+                local_meta.sha256 if local_meta else "",
+            )
+        )
+    except (HTTPError, URLError, TimeoutError, OSError, ValueError, json.JSONDecodeError):
+        pass
+
+    if local_meta:
+        return _continue_result(build_contract(local_meta, authority, degraded=True))
+    return _stop_result()
 
 
 def main() -> int:
