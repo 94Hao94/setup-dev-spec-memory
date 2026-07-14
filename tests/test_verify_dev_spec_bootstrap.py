@@ -16,12 +16,15 @@ ROOT = Path(__file__).resolve().parents[1]
 class _VerifyHandler(BaseHTTPRequestHandler):
     flags_payload = {"flags": []}
     slots_payload = {"slots": []}
+    memories_payload = {"memories": []}
 
     def do_GET(self):
         if self.path == "/agentmemory/config/flags":
             payload = type(self).flags_payload
         elif self.path == "/agentmemory/slots":
             payload = type(self).slots_payload
+        elif self.path.startswith("/agentmemory/memories?"):
+            payload = type(self).memories_payload
         else:
             self.send_response(404)
             self.end_headers()
@@ -68,6 +71,18 @@ class VerifierTests(unittest.TestCase):
                 }
             ]
         }
+        _VerifyHandler.memories_payload = {
+            "memories": [
+                {
+                    "id": "mem_index",
+                    "content": (
+                        "[Codex] AI开发执行规范 v1.6 - 当前索引\n"
+                        "SHA-256: %s\nbootstrap_slot: ai_dev_spec_bootstrap"
+                        % parse_spec(self.spec).sha256
+                    ),
+                }
+            ]
+        }
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), _VerifyHandler)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
@@ -84,7 +99,8 @@ class VerifierTests(unittest.TestCase):
         self.assertTrue(all(check.ok for check in checks), checks)
 
     def test_live_flags_and_slot_pass(self):
-        checks = verify_live(self.url, "")
+        meta = parse_spec(self.spec)
+        checks = verify_live(self.url, "", meta.version, meta.sha256)
         self.assertTrue(all(check.ok for check in checks), checks)
 
     def test_disabled_slot_flag_fails(self):
@@ -95,10 +111,20 @@ class VerifierTests(unittest.TestCase):
             ]
         }
 
-        checks = verify_live(self.url, "")
+        meta = parse_spec(self.spec)
+        checks = verify_live(self.url, "", meta.version, meta.sha256)
 
         failed = [check.name for check in checks if not check.ok]
         self.assertIn("live flag AGENTMEMORY_SLOTS", failed)
+
+    def test_missing_current_index_fails(self):
+        _VerifyHandler.memories_payload = {"memories": []}
+        meta = parse_spec(self.spec)
+
+        checks = verify_live(self.url, "", meta.version, meta.sha256)
+
+        failed = [check.name for check in checks if not check.ok]
+        self.assertIn("current specification index", failed)
 
 
 if __name__ == "__main__":

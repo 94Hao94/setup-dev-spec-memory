@@ -10,7 +10,7 @@ import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
 from urllib.request import Request, urlopen
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -160,7 +160,9 @@ def _slots(payload: Any) -> Iterable[Mapping[str, Any]]:
     return [item for item in items if isinstance(item, dict)] if isinstance(items, list) else []
 
 
-def verify_live(base_url: str, secret: str) -> List[Check]:
+def verify_live(
+    base_url: str, secret: str, expected_version: str, expected_sha256: str
+) -> List[Check]:
     """Verify runtime flags and the deterministic global pinned slot."""
 
     checks: List[Check] = []
@@ -205,6 +207,39 @@ def verify_live(base_url: str, secret: str) -> List[Check]:
             "complete" if not missing else "missing %d required token(s)" % len(missing),
         )
     )
+
+    try:
+        memories_payload = _get_json(
+            base_url,
+            "/agentmemory/memories?limit=200&includeOrphans=true",
+            secret,
+        )
+        if isinstance(memories_payload, dict):
+            memories = memories_payload.get("memories", [])
+        else:
+            memories = memories_payload
+        if not isinstance(memories, list):
+            memories = []
+        expected_tokens = (
+            "AI开发执行规范 %s - 当前索引" % expected_version,
+            "SHA-256: %s" % expected_sha256,
+            "bootstrap_slot: %s" % SLOT_LABEL,
+        )
+        index_ok = any(
+            isinstance(memory, dict)
+            and isinstance(memory.get("content"), str)
+            and all(token in memory["content"] for token in expected_tokens)
+            for memory in memories
+        )
+    except Exception:
+        index_ok = False
+    checks.append(
+        Check(
+            "current specification index",
+            index_ok,
+            "%s with matching SHA-256" % expected_version,
+        )
+    )
     return checks
 
 
@@ -219,7 +254,18 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     repo_root = Path(__file__).resolve().parents[1]
     checks = verify_static(Path(args.home), Path(args.spec), repo_root)
     if not args.static_only:
-        checks.extend(verify_live(args.url, os.environ.get("AGENTMEMORY_SECRET", "")))
+        try:
+            meta = parse_spec(Path(args.spec).expanduser())
+            checks.extend(
+                verify_live(
+                    args.url,
+                    os.environ.get("AGENTMEMORY_SECRET", ""),
+                    meta.version,
+                    meta.sha256,
+                )
+            )
+        except (OSError, UnicodeError, ValueError):
+            pass
     for check in checks:
         print("%s %s: %s" % ("PASS" if check.ok else "FAIL", check.name, check.detail))
     return 0 if all(check.ok for check in checks) else 1

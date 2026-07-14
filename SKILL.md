@@ -34,7 +34,9 @@ plane, with `~/AI开发执行规范.md` as the authority and failure fallback.
    `AGENTMEMORY_SLOTS=true` and `AGENTMEMORY_INJECT_CONTEXT=true`.
 5. Parse the authority version and SHA-256. Split content at the eight
    `## 第...章` headings. Save every chapter with `project=global-ai-dev-spec`,
-   `type=fact`, concepts, and the authority file path.
+   `type=fact`, concepts, and the authority file path. Verify the response;
+   agentmemory v0.9.27 may persist `project=null`, so bootstrap must not depend
+   on memory project scoping.
 6. Save the index after all chapters. Include version, SHA-256, chapter Memory
    IDs, slot label, memory project, synchronization time, and authority path.
 7. Render the contract:
@@ -78,7 +80,8 @@ Before starting, editing, testing, reviewing, building, deploying, or using Git:
 - [ ] Authority has an explicit version and SHA-256 was computed.
 - [ ] Installer dry-run was reviewed; apply created backups.
 - [ ] Slots and context injection are enabled after restart.
-- [ ] Eight chapters and the index use `project=global-ai-dev-spec`.
+- [ ] Eight chapters and the index requested `project=global-ai-dev-spec`; the
+      observed persisted value was recorded and is not a bootstrap dependency.
 - [ ] Global pinned slot was updated last.
 - [ ] Static, live, unrelated-project, worktree, and port checks pass.
 - [ ] Old memory deletion was not performed without separate confirmation.

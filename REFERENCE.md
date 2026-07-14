@@ -10,12 +10,17 @@
 | Slot scope | `global` |
 | Slot pinned | `true` |
 | Slot size limit | `4000` |
-| Memory project | `global-ai-dev-spec` |
+| Requested memory project | `global-ai-dev-spec` |
 | REST base | `http://localhost:3111` |
 | Required flags | `AGENTMEMORY_SLOTS=true`, `AGENTMEMORY_INJECT_CONTEXT=true` |
 
 Memory IDs are synchronization outputs, not stable configuration. The current
 index stores the eight chapter IDs. Do not hand-maintain an ID table here.
+
+On the verified v0.9.27 instance, `memory_save` accepted
+`project=global-ai-dev-spec` but the persisted records returned `project:null`.
+Treat the parameter as requested provenance only until the server confirms it;
+cross-project startup depends on the global slot, not memory project scoping.
 
 ## Control and knowledge planes
 
@@ -105,6 +110,9 @@ concepts: chapter-specific keywords
 Save the index after all chapters. Its content includes the authority version
 and SHA-256, every chapter ID, the global slot label, memory project, timestamp,
 and authority path. Replace the slot only after this index succeeds.
+
+Inspect the saved records after synchronization. Record the actual project
+field in the index when it differs from the requested value.
 
 Do not automatically delete older memories. List superseded candidates and use
 the governed deletion workflow only after explicit user confirmation.

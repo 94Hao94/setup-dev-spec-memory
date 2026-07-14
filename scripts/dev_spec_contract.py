@@ -18,6 +18,18 @@ MEMORY_PROJECT = "global-ai-dev-spec"
 MANAGED_START = "<!-- setup-dev-spec-memory:start -->"
 MANAGED_END = "<!-- setup-dev-spec-memory:end -->"
 SPEC_VERSION_RE = re.compile(r"规范版本(?:\*\*)?\s*[：:]\s*(v\d+\.\d+)")
+CHAPTER_HEADING_RE = re.compile(r"^##\s+(第([一二三四五六七八])章[^\n]*)$", re.MULTILINE)
+ORDINALS = {value: index for index, value in enumerate("一二三四五六七八", start=1)}
+CHAPTER_CONCEPTS = {
+    1: "AI开发执行规范,AI行为准则,操作确认,透明度,记忆管理",
+    2: "AI开发执行规范,文档管理,会话启动,worktree,branch,标准端口",
+    3: "AI开发执行规范,需求分析,任务规划,ToDoList",
+    4: "AI开发执行规范,编码规范,代码标准,日志规范",
+    5: "AI开发执行规范,质量保证,自审规范,测试规范,安全规范",
+    6: "AI开发执行规范,版本控制,Git提交,分支管理,发布规范",
+    7: "AI开发执行规范,问题解决,错误处理,技术排查",
+    8: "AI开发执行规范,汇报同步,任务报告,阶段汇总",
+}
 
 REQUIRED_CONTRACT_TOKENS: Sequence[str] = (
     "AI_DEV_SPEC_BOOTSTRAP",
@@ -40,6 +52,16 @@ class SpecMeta:
     sha256: str
 
 
+@dataclass(frozen=True)
+class Chapter:
+    """One ordered top-level chapter from the authoritative specification."""
+
+    number: int
+    title: str
+    content: str
+    concepts: str
+
+
 def parse_spec(path: Path) -> SpecMeta:
     """Read the authority file and return its explicit version and SHA-256."""
 
@@ -49,6 +71,28 @@ def parse_spec(path: Path) -> SpecMeta:
     if not match:
         raise ValueError("authoritative spec is missing 规范版本")
     return SpecMeta(version=match.group(1), sha256=hashlib.sha256(raw).hexdigest())
+
+
+def split_chapters(text: str) -> List[Chapter]:
+    """Split the authority into exactly eight ordered top-level chapters."""
+
+    matches = list(CHAPTER_HEADING_RE.finditer(text))
+    numbers = [ORDINALS[match.group(2)] for match in matches]
+    if numbers != list(range(1, 9)):
+        raise ValueError("authoritative spec must contain exactly eight ordered chapters")
+    chapters: List[Chapter] = []
+    for index, match in enumerate(matches):
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
+        number = numbers[index]
+        chapters.append(
+            Chapter(
+                number=number,
+                title=match.group(1).strip(),
+                content=text[match.start() : end].strip(),
+                concepts=CHAPTER_CONCEPTS[number],
+            )
+        )
+    return chapters
 
 
 def build_contract(meta: SpecMeta, authority_path: Path, degraded: bool = False) -> str:
@@ -159,14 +203,40 @@ def _render_command(spec: str) -> int:
     return 0
 
 
+def _export_command(spec: str) -> int:
+    path = Path(spec).expanduser()
+    meta = parse_spec(path)
+    chapters = split_chapters(path.read_text(encoding="utf-8"))
+    payload = {
+        "version": meta.version,
+        "sha256": meta.sha256,
+        "authority": str(path.resolve()),
+        "chapters": [
+            {
+                "number": chapter.number,
+                "title": chapter.title,
+                "content": chapter.content,
+                "concepts": chapter.concepts,
+            }
+            for chapter in chapters
+        ],
+    }
+    print(json.dumps(payload, ensure_ascii=False))
+    return 0
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
     render = subparsers.add_parser("render", help="render the bootstrap contract")
     render.add_argument("--spec", default="~/AI开发执行规范.md")
+    export = subparsers.add_parser("export-json", help="export version and chapters")
+    export.add_argument("--spec", default="~/AI开发执行规范.md")
     args = parser.parse_args(argv)
     if args.command == "render":
         return _render_command(args.spec)
+    if args.command == "export-json":
+        return _export_command(args.spec)
     return 2
 
 

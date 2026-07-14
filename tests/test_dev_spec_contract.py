@@ -9,6 +9,7 @@ from scripts.dev_spec_contract import (
     build_contract,
     merge_codex_hooks,
     parse_spec,
+    split_chapters,
     upsert_env,
     upsert_managed_block,
     validate_contract,
@@ -41,6 +42,23 @@ class ContractTests(unittest.TestCase):
             path.write_text("# AI 开发执行规范\n", encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "规范版本"):
                 parse_spec(path)
+
+    def test_split_chapters_requires_all_eight_in_order(self):
+        ordinals = "一二三四五六七八"
+        text = "# AI 开发执行规范\n\n> 规范版本：v1.6\n\n" + "\n\n".join(
+            "## 第%s章 标题%d\n\n内容%d" % (ordinal, number, number)
+            for number, ordinal in enumerate(ordinals, start=1)
+        )
+
+        chapters = split_chapters(text)
+
+        self.assertEqual([chapter.number for chapter in chapters], list(range(1, 9)))
+        self.assertEqual(chapters[0].title, "第一章 标题1")
+        self.assertTrue(chapters[7].content.startswith("## 第八章"))
+
+    def test_split_chapters_rejects_incomplete_spec(self):
+        with self.assertRaisesRegex(ValueError, "exactly eight"):
+            split_chapters("## 第一章 Only\n")
 
     def test_managed_block_is_idempotent(self):
         first = upsert_managed_block("user text\n", "contract")

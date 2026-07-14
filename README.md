@@ -69,7 +69,7 @@ agentmemory status
 
 ## 同步规范与 slot
 
-1. 将权威文件按八章分别调用 `memory_save`，统一使用 `project=global-ai-dev-spec`。
+1. 将权威文件按八章分别调用 `memory_save`，请求使用 `project=global-ai-dev-spec`，并检查实际返回。v0.9.27 实测可能仍保存为 `project:null`，启动流程不得依赖该字段。
 2. 八章全部成功后保存索引，记录版本、SHA-256 和本轮 Memory ID。
 3. 渲染契约：
 
