@@ -76,3 +76,9 @@ ln -s $(pwd) ~/.claude/skills/setup-dev-spec-memory
 ## License
 
 MIT
+
+## Unified Git policy
+
+New task branches use `<type>/<scope>-<task>` without Agent prefixes.
+See [Git policy](docs/git-policy.md) for types, Agent workflow rules, local hook
+installation, migration exceptions and GitHub required-check rollout.
